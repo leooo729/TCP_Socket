@@ -1,15 +1,32 @@
 package mysql;
 
+import org.json.JSONObject;
+
 import java.sql.*;
 import java.util.List;
 
 public class DatabaseCRUD {
-    public static String getTargetMgni(String id) {
+    public static String createMgni(JSONObject request){
         Connection connection = DatebaseConnection.getConnection();
-        String result = null;
+        String result = "";
+        try {
+            String createMgni = "insert into MGN_schema.CASHI values('MGI20221004100528100','"+request.getString("CASHI_ACC_NO")+"','"+request.getString("CASHI_CCY")+"',"+request.getBigDecimal("CASHI_AMT")+")";
+            Statement st = connection.createStatement();
+            st.execute(createMgni);
+
+        }
+        catch (Exception x) {
+            System.out.println("Exception :" + x.toString());
+        }
+        return result;
+
+    }
+    public static String getTargetMgni(JSONObject request) {
+        Connection connection = DatebaseConnection.getConnection();
+        String result = "";
 
         try {
-            String getAllCashi = "SELECT * FROM MGN_schema.MGNI where MGNI_ID = '" + id + "'";
+            String getAllCashi = "SELECT * FROM MGN_schema.MGNI where MGNI_ID = '" + request.getString("id") + "'";
             Statement st = connection.createStatement();
             ResultSet resultSet = st.executeQuery(getAllCashi);
             while (resultSet.next()) {
@@ -28,12 +45,12 @@ public class DatabaseCRUD {
         }
         return result;
     }
-    public static String getTargetCashi(String id) {
+    public static String getTargetCashi(JSONObject request) {
         Connection connection = DatebaseConnection.getConnection();
         String result="";
 
         try {
-            String getAllCashi = "SELECT * FROM MGN_schema.Cashi where CASHI_MGNI_ID = '" + id + "'";
+            String getAllCashi = "SELECT * FROM MGN_schema.Cashi where CASHI_MGNI_ID = '" + request.getString("id") + "'";
             Statement st = connection.createStatement();
             ResultSet resultSet = st.executeQuery(getAllCashi);
             while (resultSet.next()) {
@@ -53,16 +70,18 @@ public class DatabaseCRUD {
         return result;
     }
 
-    public static String deleteMgni(String id) {
+    public static String deleteMgni(JSONObject requset) {
         Connection connection = DatebaseConnection.getConnection();
         try {
 
             //要執行的命令
-            String createCashi = "insert into MGN_schema.CASHI values('MGI20221004100528100','1','TWD',1000)";
+            String deleteCashi = "delete from MGN_schema.CASHI where CASHI_MGNI_ID='"+requset.getString("id")+"'";
+            String deleteMgni = "delete from MGN_schema.MGNI where MGNI_ID='"+requset.getString("id")+"'";
             //通過連接對象，將命令傳給資料庫
             Statement st = connection.createStatement();
             //執行
-            st.execute(createCashi);
+            st.execute(deleteCashi);
+            st.execute(deleteMgni);
         } catch (Exception e) {
             System.out.println("Exception :" + e.toString());
         }
