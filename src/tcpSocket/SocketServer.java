@@ -32,11 +32,11 @@ public class SocketServer {
                 //-------------------------------------------------------
                 switch (requestType) {
                     case "0": {
-                        bw.write(DatabaseCRUD.getTargetCashi(request));
+                        bw.write(DatabaseCRUD.getTargetCashi(request.getString("id")));
                         break;
                     }
                     case "1": {
-                        bw.write(DatabaseCRUD.getTargetMgni(request));
+                        bw.write(DatabaseCRUD.getTargetMgni(request.getString("id")));
                         break;
                     }
                     case "2": {
@@ -44,15 +44,19 @@ public class SocketServer {
                         break;
                     }
                     case "3": {
-                        bw.write(DatabaseCRUD.deleteMgni(request));
-                        break;
-                    }
-                    case "4": {
                         bw.write(DatabaseCRUD.createMgni(request));
                         break;
                     }
+                    case "4": {
+                        bw.write(DatabaseCRUD.updateMgni(request));
+                        break;
+                    }
+                    case "5": {
+                        bw.write(DatabaseCRUD.deleteMgni(request));
+                        break;
+                    }
                     default: {
-bw.write("請輸入有效查詢資料");
+                        bw.write("請輸入有效查詢資料");
                     }
                 }
                 bw.newLine();
@@ -71,6 +75,8 @@ bw.write("請輸入有效查詢資料");
 //            }
 
         }
+
+
     }
 }
 

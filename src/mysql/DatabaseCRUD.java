@@ -12,7 +12,6 @@ public class DatabaseCRUD {
     static Connection connection = DatebaseConnection.getConnection();
 
     public static String createMgni(JSONObject request) {
-        String result = "";
         String id = "MGI" + DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(LocalDateTime.now());
         try {
             Statement st = connection.createStatement();
@@ -21,7 +20,6 @@ public class DatabaseCRUD {
             String createCashi = "";
             for (Object s : request.getJSONArray("accAmt")) {
                 JSONObject jsonObject = new JSONObject(s.toString());
-                System.out.println(jsonObject);
                 createCashi = "insert into MGN_schema.CASHI values('" + id + "','" + jsonObject.getString("acc") + "','" + request.getString("ccy") + "','" + jsonObject.getBigDecimal("amt") + "')";
                 totalAmt = totalAmt.add(jsonObject.getBigDecimal("amt"));
                 st.execute(createCashi);
@@ -44,22 +42,20 @@ public class DatabaseCRUD {
                     + "','0"
                     + "','" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now())
                     + "')";
-
-            System.out.println(createMgni);
             st.execute(createMgni);
 
-        } catch (Exception x) {
-            System.out.println(x.toString());
+        } catch (Exception e) {
+            System.out.println(e.toString());
         }
-        return "新增成功";
+        return "新增成功" + "\n" + getTargetMgni(id);
 
     }
 
-    public static String getTargetMgni(JSONObject request) {
+    public static String getTargetMgni(String id) {
         String result = "";
 
         try {
-            String targetMgni = "SELECT * FROM MGN_schema.MGNI where MGNI_ID = '" + request.getString("id") + "'";
+            String targetMgni = "SELECT * FROM MGN_schema.MGNI where MGNI_ID = '" + id + "'";
             Statement st = connection.createStatement();
             ResultSet mgni = st.executeQuery(targetMgni);
             while (mgni.next()) {
@@ -72,7 +68,7 @@ public class DatabaseCRUD {
                         + " 存入幣別:" + mgni.getString("MGNI_CCY") + "\n"
                         + " 存入方式:" + mgni.getString("MGNI_PV_TYPE") + "\n"
                         + " 實體帳號/虛擬帳號:" + mgni.getString("MGNI_BICACC_NO") + "\n"
-                        + " 存入帳號明細:"+"\n"+getTargetCashi(request)
+                        + " 存入帳號明細:" + "\n" + getTargetCashi(id)
                         + " 存入類別:" + mgni.getString("MGNI_I_TYPE") + "\n"
                         + " 存入實體帳號原因:" + mgni.getString("MGNI_P_REASON") + "\n"
                         + " 總存入金額:" + mgni.getString("MGNI_AMT") + "\n"
@@ -88,11 +84,11 @@ public class DatabaseCRUD {
         return result;
     }
 
-    public static String getTargetCashi(JSONObject request) {
+    public static String getTargetCashi(String id) {
         String result = "";
 
         try {
-            String getAllCashi = "SELECT * FROM MGN_schema.Cashi where CASHI_MGNI_ID = '" + request.getString("id") + "'";
+            String getAllCashi = "SELECT * FROM MGN_schema.Cashi where CASHI_MGNI_ID = '" + id + "'";
             Statement st = connection.createStatement();
             ResultSet resultSet = st.executeQuery(getAllCashi);
             while (resultSet.next()) {
@@ -134,7 +130,7 @@ public class DatabaseCRUD {
                         + " 存入幣別:" + mgni.getString("MGNI_CCY") + "\n"
                         + " 存入方式:" + mgni.getString("MGNI_PV_TYPE") + "\n"
                         + " 實體帳號/虛擬帳號:" + mgni.getString("MGNI_BICACC_NO") + "\n"
-                        + " 存入帳號明細:"+"\n"+getTargetCashi(request)
+                        + " 存入帳號明細:" + "\n" + getTargetCashi(mgni.getString("MGNI_ID"))
                         + " 存入類別:" + mgni.getString("MGNI_I_TYPE") + "\n"
                         + " 存入實體帳號原因:" + mgni.getString("MGNI_P_REASON") + "\n"
                         + " 總存入金額:" + mgni.getString("MGNI_AMT") + "\n"
@@ -143,7 +139,7 @@ public class DatabaseCRUD {
                         + " 申請狀態:" + mgni.getString("MGNI_STATUS") + "\n"
                         + " 更新時間:" + mgni.getString("MGNI_U_TIME") + "\n"
                         + "\n");
-            }//((resultSet.getString("MGNI_ID") + " " + resultSet.getString("MGNI_CM_NO") + " " + resultSet.getString("MGNI_CCY") + " " + resultSet.getBigDecimal("MGNI_CT_TEL")) + "\n");
+            }
         } catch (Exception e) {
             System.out.println("Exception :" + e.toString());
         }
@@ -151,9 +147,17 @@ public class DatabaseCRUD {
     }
 
     public static String updateMgni(JSONObject request) {
-        String updateMgni = "";
+        String updateMgni = "UPDATE MGN_schema.Mgni SET MGNI_U_TIME='" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now())
+                + "',MGNI_PV_TYPE='" + request.getString("pvType")
+                + "' WHERE MGNI_ID ='" + request.getString("id") + "'";
+        try {
+            Statement st = connection.createStatement();
+            st.execute(updateMgni);
+        } catch (SQLException e) {
+            System.out.println("Exception :" + e.toString());
+        }
 
-        return "更新成功";
+        return "更新成功"+ "\n" + getTargetMgni(request.getString("id"));
     }
 
     public static String deleteMgni(JSONObject requset) {
