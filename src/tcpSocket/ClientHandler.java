@@ -2,31 +2,26 @@ package tcpSocket;
 
 import mysql.DatabaseCRUD;
 import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.*;
 import java.net.Socket;
 
-public class ClientThread extends Thread {
+public class ClientHandler extends Thread  {
     private Socket socket;
 
-    public ClientThread(Socket socket) {
+    public ClientHandler(Socket socket) {
         this.socket = socket;
     }
 
-    private static final Logger logger = Logger.getLogger(SocketServer.class);
+    private static final Logger logger = Logger.getLogger(MultiThreadServer.class);
 
     @Override
-    public void run() {
-        PropertyConfigurator.configure("/Users/linyulin/Downloads/TCP_Socket/src/resources/log4j.properties");
-
+    public void run() { //啟動Thread時會執行run
         try {
-            InputStream inputStream = socket.getInputStream();
-            OutputStream outputStream = socket.getOutputStream();
-            BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(outputStream));
+            BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 
             String requestStr = br.readLine();
 
@@ -85,14 +80,14 @@ public class ClientThread extends Thread {
                 BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(outputStream));
 
                 System.out.println(e);
-                bw.write("請輸入正確Json格式");
+                bw.write("輸入Json格式資料有誤"+e);
                 bw.newLine();
                 bw.flush();
 
                 bw.close();
                 outputStream.close();
 
-                logger.error("輸入Json格式資料有誤");
+                logger.error("輸入Json格式資料有誤"+e);
 
             } catch (IOException ex) {
                 System.out.println("Socket啟動有問題 !");

@@ -2,7 +2,7 @@ package mysql;
 
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
-import tcpSocket.SocketServer;
+import tcpSocket.MultiThreadServer;
 
 import java.math.BigDecimal;
 import java.sql.*;
@@ -11,26 +11,31 @@ import java.time.format.DateTimeFormatter;
 
 public class DatabaseCRUD {
     static Connection connection = DatebaseConnection.getConnection();
-    private static final Logger logger = Logger.getLogger(SocketServer.class);
+    private static final Logger logger = Logger.getLogger(MultiThreadServer.class);
 
     public static String createMgni(JSONObject request) {
 
         String id = "MGI" + DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").format(LocalDateTime.now());
 
         try {
+            //通過連接對象，將命令傳給資料庫
             Statement st = connection.createStatement();
+
+            if (checkIdExist(st, id) == true) {
+                return "此id已存在";
+            }
+
             BigDecimal totalAmt = new BigDecimal(0);
-//            String createCashi = "";
+
 
             for (Object accAmt : request.getJSONArray("accAmt")) {
-                JSONObject cashi = new JSONObject(accAmt.toString());
-                String createCashi = "insert into MGN_schema.CASHI values('" + id + "','" + cashi.getString("acc") + "','" + request.getString("ccy") + "','" + cashi.getBigDecimal("amt") + "')";
-                totalAmt = totalAmt.add(cashi.getBigDecimal("amt"));
-                st.execute(createCashi);
+                createCashiSql(accAmt, id, request.getString("ccy"), st);
+                totalAmt = totalAmt.add(new JSONObject(accAmt.toString()).getBigDecimal("amt"));
             }
 
             String createMgniSql = createMgniSql(id, request, totalAmt);
-            st.execute(createMgniSql);
+            st.execute(createMgniSql); //執行
+
 
         } catch (SQLException e) {
             System.out.println("SQLException :" + e.toString());
@@ -41,7 +46,7 @@ public class DatabaseCRUD {
     }
 
     public static String getTargetMgni(String id) {
-        String result=getTargetMgniSql(id);
+        String result = getTargetMgniSql(id);
         return result;
     }
 
@@ -70,6 +75,9 @@ public class DatabaseCRUD {
             ResultSet mgni = st.executeQuery(builder.toString());
 
             result = mgniResult(mgni);
+            if (result.isEmpty()) {
+                return "無符合篩選資料";
+            }
 
         } catch (SQLException e) {
             System.out.println("SQLException :" + e.toString());
@@ -86,30 +94,20 @@ public class DatabaseCRUD {
             Statement st = connection.createStatement();
             st.execute(deleteCashi);
 
-            BigDecimal totalAmt = new BigDecimal(0);
-
-            String createCashi;
-
-            for (Object s : request.getJSONArray("accAmt")) {
-                JSONObject jsonObject = new JSONObject(s.toString());
-                createCashi = "insert into MGN_schema.CASHI values('" + request.getString("id") + "','" + jsonObject.getString("acc") + "','" + request.getString("ccy") + "','" + jsonObject.getBigDecimal("amt") + "')";
-                totalAmt = totalAmt.add(jsonObject.getBigDecimal("amt"));
-                st.execute(createCashi);
+            if (checkIdExist(st, request.getString("id")) == false) {
+                return "此id不存在";
             }
 
-            String updateMgni = "UPDATE MGN_schema.Mgni SET MGNI_U_TIME='" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now())
-                    + "',MGNI_CM_NO='" + request.getString("cmNo")
-                    + "',MGNI_KAC_TYPE='" + request.getString("kacType")
-                    + "',MGNI_BANK_NO='" + request.getString("bankNo")
-                    + "',MGNI_CCY='" + request.getString("ccy")
-                    + "',MGNI_PV_TYPE='" + request.getString("pvType")
-                    + "',MGNI_BICACC_NO='" + request.getString("bicaccNo")
-                    + "',MGNI_AMT=" + totalAmt
-                    + ",MGNI_CT_NAME='" + request.getString("ctName")
-                    + "',MGNI_CT_TEL='" + request.getString("ctTel")
-                    + "' WHERE MGNI_ID ='" + request.getString("id") + "'";
-            System.out.println(updateMgni);
-            st.execute(updateMgni);
+            BigDecimal totalAmt = new BigDecimal(0);
+
+            for (Object accAmt : request.getJSONArray("accAmt")) {
+                createCashiSql(accAmt, request.getString("id"), request.getString("ccy"), st);
+                totalAmt = totalAmt.add(new JSONObject(accAmt.toString()).getBigDecimal("amt"));
+            }
+
+            String updateMgniSql = updateMgniSql(request, totalAmt);
+            st.execute(updateMgniSql);
+
         } catch (SQLException e) {
             System.out.println("SQLException :" + e.toString());
             logger.error("SQLException happen");
@@ -124,9 +122,12 @@ public class DatabaseCRUD {
         String deleteCashi = "delete from MGN_schema.CASHI where CASHI_MGNI_ID='" + request.getString("id") + "'";
         String deleteMgni = "delete from MGN_schema.MGNI where MGNI_ID='" + request.getString("id") + "'";
         try {
-            //通過連接對象，將命令傳給資料庫
             Statement st = connection.createStatement();
-            //執行
+
+            if (checkIdExist(st, request.getString("id")) == false) {
+                return "此id不存在";
+            }
+
             st.execute(deleteCashi);
             st.execute(deleteMgni);
         } catch (SQLException e) {
@@ -159,7 +160,7 @@ public class DatabaseCRUD {
                         + " 聯絡人電話:" + mgni.getString("MGNI_CT_TEL") + "\n"
                         + " 申請狀態:" + mgni.getString("MGNI_STATUS") + "\n"
                         + " 更新時間:" + mgni.getString("MGNI_U_TIME") + "\n"
-                        + "\n");
+                );
             }
         } catch (SQLException e) {
             System.out.println("SQLException :" + e.toString());
@@ -195,6 +196,11 @@ public class DatabaseCRUD {
         try {
             String targetMgni = "SELECT * FROM MGN_schema.MGNI where MGNI_ID = '" + id + "'";
             Statement st = connection.createStatement();
+
+            if (checkIdExist(st, id) == false) {
+                return "此id不存在";
+            }
+
             ResultSet mgni = st.executeQuery(targetMgni);
             result = mgniResult(mgni);
         } catch (SQLException e) {
@@ -204,16 +210,34 @@ public class DatabaseCRUD {
         }
         return result;
     }
+
     private static String getCashiSql(String id) {
-        String result="";
+        String result = "";
         try {
             String getAllCashi = "SELECT * FROM MGN_schema.Cashi where CASHI_MGNI_ID = '" + id + "'";
             Statement st = connection.createStatement();
-            ResultSet resultSet = st.executeQuery(getAllCashi);
-            while (resultSet.next()) {
-                result += ("    存入結算帳戶帳號:" + resultSet.getString("CASHI_ACC_NO") + "\n"
-                        + "    幣別:" + resultSet.getString("CASHI_CCY") + "\n"
-                        + "    金額:" + resultSet.getBigDecimal("CASHI_AMT") + "\n" + "\n");
+
+            if (checkIdExist(st, id) == false) {
+                return "此id不存在";
+            }
+
+            ResultSet cashi = st.executeQuery(getAllCashi);
+            result = cashiResult(cashi);
+        } catch (SQLException e) {
+            System.out.println("SQLException :" + e.toString());
+            logger.error("SQLException happen");
+            return "SQLException happen";
+        }
+        return result;
+    }
+
+    private static String cashiResult(ResultSet cashi) {
+        String result = "";
+        try {
+            while (cashi.next()) {
+                result += ("    存入結算帳戶帳號:" + cashi.getString("CASHI_ACC_NO") + "\n"
+                        + "    幣別:" + cashi.getString("CASHI_CCY") + "\n"
+                        + "    金額:" + cashi.getBigDecimal("CASHI_AMT") + "\n" + "\n");
             }
         } catch (SQLException e) {
             System.out.println("SQLException :" + e.toString());
@@ -223,4 +247,44 @@ public class DatabaseCRUD {
         return result;
     }
 
+
+    private static String updateMgniSql(JSONObject request, BigDecimal totalAmt) {
+        String updateMgniSql = "UPDATE MGN_schema.Mgni SET MGNI_U_TIME='" + DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now())
+                + "',MGNI_CM_NO='" + request.getString("cmNo")
+                + "',MGNI_KAC_TYPE='" + request.getString("kacType")
+                + "',MGNI_BANK_NO='" + request.getString("bankNo")
+                + "',MGNI_CCY='" + request.getString("ccy")
+                + "',MGNI_PV_TYPE='" + request.getString("pvType")
+                + "',MGNI_BICACC_NO='" + request.getString("bicaccNo")
+                + "',MGNI_AMT=" + totalAmt
+                + ",MGNI_CT_NAME='" + request.getString("ctName")
+                + "',MGNI_CT_TEL='" + request.getString("ctTel")
+                + "' WHERE MGNI_ID ='" + request.getString("id") + "'";
+        return updateMgniSql;
+    }
+
+    private static boolean createCashiSql(Object accAmt, String id, String ccy, Statement st) {
+        try {
+            JSONObject cashi = new JSONObject(accAmt.toString());
+            String createCashiSql = "insert into MGN_schema.CASHI values('" + id + "','" + cashi.getString("acc") + "','" + ccy + "','" + cashi.getBigDecimal("amt") + "')";
+            st.execute(createCashiSql);
+        } catch (SQLException e) {
+            System.out.println("SQLException :" + e.toString());
+            logger.error("SQLException happen");
+        }
+        return true;
+    }
+
+    private static boolean checkIdExist(Statement st, String id) {
+        try {
+            ResultSet exist = st.executeQuery("SELECT * FROM MGN_schema.MGNI WHERE MGNI_ID= '" + id + "'");
+            if (exist.next()) {
+                return true;
+            }
+        } catch (SQLException e) {
+            System.out.println("SQLException :" + e.toString());
+            logger.error("SQLException happen");
+        }
+        return false;
+    }
 }
