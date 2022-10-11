@@ -9,23 +9,22 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public class SocketServer {
-    private static final Logger logger = Logger.getLogger(SocketServer.class);
+//    private static final Logger logger = Logger.getLogger(SocketServer.class);
 
     public static void main(String[] args) throws IOException {
-        PropertyConfigurator.configure("/Users/linyulin/Downloads/TCP_Socket/src/resources/log4j.properties");
+//        PropertyConfigurator.configure("/Users/linyulin/Downloads/TCP_Socket/src/resources/log4j.properties");
         ServerSocket serverSocket = new ServerSocket(1010); //服務氣端點對象
 
         while (true) {
             try {
-                logger.info("666");
                 Socket socket = serverSocket.accept(); //監聽客服端
                 //建立一thread
                 ClientThread clientThread = new ClientThread(socket);
                 clientThread.start();
 
             } catch (IOException e) {
-                e.printStackTrace();
-            }
+                System.out.println("Socket啟動有問題 !");
+                System.out.println("IOException :" + e.toString());            }
         }
     }
 }
